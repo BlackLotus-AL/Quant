@@ -30,17 +30,19 @@ data = bt.feeds.PandasData(dataname=stock_df, fromdate=fromdate, todate=todate)
 # 上穿20日线买入，跌穿20日均线就卖出
 class MyStrategy(bt.Strategy):
     params = (
-        ('maperiod', 20),
+        ('period_20', 20),
+        ('period_15', 15),
     )
 
     def __init__(self):
         self.order = None
-        self.ma = bt.indicators.MovingAverageSimple(self.datas[0], period=self.params.maperiod)
+        self.ma20 = bt.indicators.SMA(self.datas[0], period=self.p.period_20)
+        self.ma15 = bt.indicators.SMA(self.datas[0], period=self.p.period_15)
+        # 15日均线和20日均线的差值
+        self.ma_15_20 = self.ma15 - self.ma20
 
     # 每个bar都会执行一次, 回测的每个日期都会执行一次
     def next(self):
-        # 判断是否有交易指令正在进行
-
         # 空仓
         if not self.position:
             if self.datas[0].close[0] > self.ma[0]:
@@ -52,6 +54,10 @@ class MyStrategy(bt.Strategy):
                 self.order = self.sell(size=200)
                 print("卖出：")
                 print(self.order)
+
+    def log(self, txt, dt=None):
+        dt = dt or self.datas[0].datatime.date(0)
+        print('%s,%s' % (dt.isoformat(), txt))
 
 
 # 3.策略设置
@@ -65,6 +71,8 @@ cerebro.addstrategy(MyStrategy)
 cerebro.broker.setcash(startcash)
 # 设置手续费
 cerebro.broker.setcommission(0.0002)
+# 设置滑点
+cerebro.broker.set_slippage_perc(perc=0.0001)
 
 # 4.执行回测
 s = fromdate.strftime("%Y-%m-%d")
